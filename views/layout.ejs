@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -17,14 +18,34 @@
 <body>
 <div id="page">
     <header class="main" id="mainHeader">
+        <div class="right">
+            <% if (!session.user) { %>
+                <a href="/users/new">Register</a>
+                <a href="/session">Login</a>
+            <% } else { %>
+                <a href="/users/<%= session.user.id %>"><%= session.user.username %></a>
+                <a href="/session?_method=DELETE">Logout</a>
+            <% } %>
+        </div>
+        
+
         <h1><span class="no-narrow">The</span> Quiz <span class="no-narrow">Site</span></h1>
     </header>
+    
 
     <nav class="main" id="mainNav" role="navigation">
+    
         <a href="/">Home</a>
-        <a href="/quizzes">Quizzes</a>
-        <a href="/author">Author</a>
         <a href="/quizzes/randomplay">Play</a>
+        <a href="/quizzes">Quizzes</a>
+        <% if (session.user) { %>
+            <a href="/users/<%= session.user.id %>/quizzes">My Quizzes</a>
+        <% } %>
+        <a href="/author">Author</a>
+        <% if (session.user) { %>
+            <a href="/users">Users</a>
+        <% } %>
+        
     </nav>
 
     <section class="main" id="mainSection">
@@ -50,6 +71,7 @@
             </ul>
         </article>
         <% } %>
+
         <% if (messages.error) { %>
         <article id='flasherror'>
             <h3>Errors:</h3>
@@ -60,7 +82,12 @@
             </ul>
         </article>
         <% } %>
+
         <%- body %>
+
+        <% if (locals.paginate_control) { %>
+        <%- paginate_control %>
+        <% } %>
     </section>
 
     <footer class="main" id="mainFooter">
