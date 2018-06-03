@@ -3,22 +3,21 @@ const Op = Sequelize.Op;
 const {models} = require("../models");
 const paginate = require('../helpers/paginate').paginate;
 
-// Autoload the quiz with id equals to :quizId
-exports.load = (req, res, next, quizId) => {
 
+exports.load = (req, res, next, quizId) => {
     models.quiz.findById(quizId, {
         include: [
-            {
-            model : models.tip,
-            include : [{model: models.user, as: 'author'}]
-            },
+            models.tip,
             {model: models.user, as: 'author'}
         ]
     })
+    
     .then(quiz => {
         if (quiz) {
+            
             req.quiz = quiz;
             next();
+            
         } else {
             throw new Error('There is no quiz with id=' + quizId);
         }
@@ -27,7 +26,6 @@ exports.load = (req, res, next, quizId) => {
 };
 
 
-// MW that allows actions only if the user logged in is admin or is the author of the quiz.
 exports.adminOrAuthorRequired = (req, res, next) => {
 
     const isAdmin  = !!req.session.user.isAdmin;
@@ -203,7 +201,9 @@ exports.destroy = (req, res, next) => {
 exports.play = (req, res, next) => {
 
     const {quiz, query} = req;
+
     const answer = query.answer || '';
+
     res.render('quizzes/play', {
         quiz,
         answer
@@ -215,6 +215,7 @@ exports.play = (req, res, next) => {
 exports.check = (req, res, next) => {
 
     const {quiz, query} = req;
+
     const answer = query.answer || "";
     const result = answer.toLowerCase().trim() === quiz.answer.toLowerCase().trim();
 
@@ -225,78 +226,71 @@ exports.check = (req, res, next) => {
     });
 };
 
-// GET /quizzes/randomplay
+//GET/quizzes/:quizId/randomplay
 exports.randomplay = (req, res, next) => {
 
-
-   if(req.session.randomPlay == undefined ) {   
-        req.session.randomPlay = [];
-    }
-
-    const Op = Sequelize.Op;
-    const condicion = {'id': {[Op.notIn]: req.session.randomPlay}};
-
-    models.quiz.count({where: condicion})
-    .then(count => {
-        if (count === 0) {
-            let score = req.session.randomPlay.length;
-            delete req.session.randomPlay;
-            res.render('quizzes/random_nomore', {
-            score : score
-            });
-        req.session.randomPlay = [];
-        } else {
-            return models.quiz.findAll({
-                where: condicion,
-                offset: Math.floor(Math.random() * count), 
-                limit: 1 
-            })
-            
-            .then(quizzes => {
-                return quizzes[0];
-            });
+    if (req.session.toBeResolved === undefined) {
         
-        }
-    })
-    .then(quiz => {
-        res.render('quizzes/random_play', {  
-            quiz : quiz,
-            score :req.session.randomPlay.length
+        req.session.score = 0;
+        models.quiz.findAll()
+            .then(quizzes => {
+            
+                req.session.toBeResolved = quizzes;
+                const azar = Math.floor(Math.random() * req.session.toBeResolved.length);
+                const quiz = req.session.toBeResolved[azar];
+                req.session.toBeResolved.splice(azar, 1);
+                const score = req.session.score;
+                res.render('quizzes/random_play', {
+                    
+                    quiz: quiz,
+                    score: score
+                    
+                })
+            
+            }).catch(error => next(error));
+        
+    } else {
+        const azar = Math.floor(Math.random() * req.session.toBeResolved.length);
+        const quiz = req.session.toBeResolved[azar];
+        req.session.toBeResolved.splice(azar, 1);
+        const score = req.session.score;
+        res.render("quizzes/random_play", {
+            quiz: quiz,
+            score: score
         });
-    })
-    .catch(error => next(error));
-              
-}
-
-// GET /quizzes/:quizId/randomcheck
-exports.randomcheck = (req, res, next) => {
-
-
-    if(req.session.randomPlay == undefined ) {   
-        req.session.randomPlay = [];
-    }
-    const player_answer =  req.query.answer || "";
-    const quiz_Answer = req.quiz.answer;     
-    var score = req.session.randomPlay.length; 
-    var result = player_answer.toLowerCase().trim() === quiz_Answer.toLowerCase().trim();
-    
-    if(result){
-            req.session.randomPlay.push(req.quiz.id)
-            score = req.session.randomPlay.length;
-    }
-    res.render('quizzes/random_result', {   
-        score: score, 
-        answer: player_answer,
-        result: result
-    });
-
+    };
 };
 
 
+//GET/quizzes/:quizId/randomcheck
+exports.randomcheck = (req, res, next) => {
+    
+    const {quiz, query} = req;
+    const answer = query.answer || "";
+    const result = answer.toLowerCase().trim() === quiz.answer.toLowerCase().trim();
 
-
-
-
-
-
-
+    if(result){
+        req.session.score++;
+        if(req.session.toBeResolved.length === 0){
+            req.session.toBeResolved === undefined;
+            res.render('quizzes/random_nomore', {
+                score: req.session.score
+            })
+        }
+        else{
+            res.render('quizzes/random_result', {
+                answer: answer,
+                score: req.session.score,
+                result: result
+            })
+        }
+    }
+    else{
+        req.session.toBeResolved === undefined;
+        res.render('quizzes/random_result', {
+            answer: answer,
+            score: req.session.score,
+            result: result
+        })
+    }
+}
