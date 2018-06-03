@@ -1,18 +1,34 @@
+<div class="right">
+    <small> (by <%= quiz.author ? quiz.author.username : "Anonymous" %>) </small>
+</div>
 
 <h1>
     Play:
 </h1>
 
+
 <form method="get" action="/quizzes/<%= quiz.id %>/check">
     <p>
         Question: <b><%= quiz.question %></b>
     </p>
-
-
     <div class="wideRow">
         <input type="text" class="itemWide" name="answer" value="<%= answer %>" placeholder="Answer" autocomplete="off"/>
         <input type="submit" class="itemNarrow" value="Check">
     </div>
 </form>
 
-<a href="/quizzes"><button>Go back</button></a>
+<h1>
+    Tips:
+</h1>
+
+<% if (session.user) { %>
+    <% include ../tips/new %>
+<% } %>
+
+<% var tips = quiz.tips; %>
+<% var quizId = quiz.id; %>
+<% var quizAuthorId = quiz.authorId; %>
+
+<% include ../tips/index %>
+
+<a href="/goback"><button>Go back</button></a>
